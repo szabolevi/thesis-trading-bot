@@ -50,24 +50,24 @@ def on_message(ws_app, message):
         if last_but_one_closing_price < last_but_one_ma_value and last_closing_price > last_ma_value:
             if not in_position:
                 logger.info("Sending buy order")
-                # try:
-                #     limit_buy_order(binance_client, BASE_CURRENCY, QUOTE_CURRENCY)
-                # except (BinanceAPIException, BinanceOrderException) as e:
-                #     handle_transaction_error(logger, e)
-                # except Exception as e:
-                #     handle_transaction_error(logger, e)
-                # handle_transaction_info(logger, "buy", BASE_CURRENCY, closing_price, BASE_CURRENCY)
+                try:
+                    limit_buy_order(binance_client, BASE_CURRENCY, QUOTE_CURRENCY)
+                except (BinanceAPIException, BinanceOrderException) as e:
+                    handle_transaction_error(logger, e)
+                except Exception as e:
+                    handle_transaction_error(logger, e)
+                handle_transaction_info(logger, "buy", BASE_CURRENCY, closing_price, BASE_CURRENCY)
                 in_position = True
         if last_but_one_closing_price > last_but_one_ma_value and last_closing_price < last_ma_value:
             if in_position:
                 logger.info("Sending sell order")
-                # try:
-                #     limit_sell_order(binance_client, BASE_CURRENCY, QUOTE_CURRENCY)
-                # except (BinanceAPIException, BinanceOrderException) as e:
-                #     handle_transaction_error(logger, e)
-                # except Exception as e:
-                #     handle_transaction_error(logger, e)
-                # handle_transaction_info(logger, "sell", BASE_CURRENCY, closing_price, QUOTE_CURRENCY)
+                try:
+                    limit_sell_order(binance_client, BASE_CURRENCY, QUOTE_CURRENCY)
+                except (BinanceAPIException, BinanceOrderException) as e:
+                    handle_transaction_error(logger, e)
+                except Exception as e:
+                    handle_transaction_error(logger, e)
+                handle_transaction_info(logger, "sell", BASE_CURRENCY, closing_price, QUOTE_CURRENCY)
                 in_position = False
 
 
@@ -87,7 +87,6 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------
     binance_client = Client(API_KEY, SECRET_KEY)
 
-    print(API_KEY, SECRET_KEY)
     closing_prices = get_recent_prices(binance_client, TRADE_SYMBOL, INTERVAL)
     in_position = False
 
