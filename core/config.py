@@ -1,4 +1,7 @@
 import os
+from core.envloader import load_env
+
+load_env()
 
 API_KEY = os.getenv("API_KEY")
 SECRET_KEY = os.getenv("SECRET_KEY")

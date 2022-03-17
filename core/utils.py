@@ -1,13 +1,19 @@
+import enum
 import json
-import sys
-
+import logging
+import os
 from core.notifications import send_notification
+
+
+class Signal(enum.Enum):
+    buy = 1
+    sell = 2
 
 
 def handle_transaction_error(logger, error):
     error_message = f"An error occured when trying to send order: {error}"
-    send_notification(error_message)
     logger.info(error_message)
+    send_notification(error_message)
 
 
 def handle_transaction_info(logger, order_type, base_currency, price, quote_currency):
@@ -29,3 +35,36 @@ def get_non_zero_balances(client):
     balances = info["balances"]
     assets = [obj for obj in balances if float(obj["free"]) > 0]
     return assets
+
+
+def check_directory_existence(dir_name):
+    if not os.path.isdir(dir_name):
+        os.mkdir(dir_name)
+
+
+def configure_logger(logging_directory):
+    check_directory_existence(logging_directory)
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    log_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    file_handler = logging.FileHandler("logs/bot.log")
+    file_handler.setFormatter(log_formatter)
+    logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+    logger.addHandler(console_handler)
+
+    return logger
+
+
+def process_msg(message):
+    json_message = json.loads(message)
+    candle_data = json_message['k']
+
+    is_candle_closed = candle_data['x']
+    closing_price = float(candle_data['c'])
+
+    return is_candle_closed, closing_price

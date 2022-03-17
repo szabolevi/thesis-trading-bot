@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from binance.client import Client
 from binance.exceptions import BinanceAPIException, BinanceOrderException
 
@@ -23,6 +25,20 @@ def get_recent_prices(client, symbol, interval):
     return prices
 
 
+def get_prices_with_time_details(client, symbol, interval, candle_array_length):
+    candles = client.get_klines(symbol=symbol, interval=interval)
+    prices = [
+        {
+            "open_time": datetime.fromtimestamp(candle[0] / 1000),
+            "close_time": datetime.fromtimestamp(candle[6] / 1000),
+            "open": float(candle[1]),
+            "close": float(candle[4])
+        }
+        for candle in candles[-candle_array_length:]
+    ]
+    return prices
+
+
 def get_balance(client, symbol='USDT'):
     balance = client.get_asset_balance(asset=symbol)["free"]
     return balance
@@ -40,13 +56,13 @@ def limit_buy_order(client, base_asset, quote_asset):
     print(f"Current {base_asset} price: {current_price} {quote_asset}, buying with: {fiat_buying_value} {quote_asset}")
     print(f"Limit price: {limit_price} {quote_asset}, buying: {base_asset_quantity} {base_asset}")
 
-    order = client.create_order(
-        symbol=base_asset + quote_asset,
-        side=Client.SIDE_BUY,
-        type=Client.ORDER_TYPE_LIMIT,
-        timeInForce=Client.TIME_IN_FORCE_GTC,
-        quantity=base_asset_quantity,
-        price=limit_price)
+    # order = client.create_order(
+    #     symbol=base_asset + quote_asset,
+    #     side=Client.SIDE_BUY,
+    #     type=Client.ORDER_TYPE_LIMIT,
+    #     timeInForce=Client.TIME_IN_FORCE_GTC,
+    #     quantity=base_asset_quantity,
+    #     price=limit_price)
 
 
 def limit_sell_order(client, base_asset, quote_asset):
@@ -63,13 +79,13 @@ def limit_sell_order(client, base_asset, quote_asset):
     print(
         f"Selling {base_asset_sell_quantity} {base_asset} worth of {base_asset_sell_quantity * current_price} {quote_asset}")
 
-    order = client.create_order(
-        symbol=base_asset + quote_asset,
-        side=Client.SIDE_SELL,
-        type=Client.ORDER_TYPE_LIMIT,
-        timeInForce=Client.TIME_IN_FORCE_GTC,
-        quantity=base_asset_sell_quantity,
-        price=limit_price)
+    # order = client.create_order(
+    #     symbol=base_asset + quote_asset,
+    #     side=Client.SIDE_SELL,
+    #     type=Client.ORDER_TYPE_LIMIT,
+    #     timeInForce=Client.TIME_IN_FORCE_GTC,
+    #     quantity=base_asset_sell_quantity,
+    #     price=limit_price)
 
 
 def oco_sell(client, pair):
