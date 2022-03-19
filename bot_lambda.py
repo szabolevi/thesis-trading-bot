@@ -4,11 +4,13 @@ from datetime import datetime
 from binance import Client
 from core.config import API_KEY, SECRET_KEY
 from core.indicators import get_moving_averages
+from core.utils import OrderSide
+
 
 BASE_CURRENCY = "BTC"
 QUOTE_CURRENCY = "EUR"
 TRADE_SYMBOL = f"{BASE_CURRENCY}{QUOTE_CURRENCY}"
-INTERVAL = Client.KLINE_INTERVAL_3MINUTE
+INTERVAL = Client.KLINE_INTERVAL_1MINUTE
 
 
 def get_prices(client, symbol, interval, number_of_candles):
@@ -26,21 +28,21 @@ def calculate_trading_signal(prices, moving_averages):
     last_ma_value = moving_averages[-1]
     last_but_one_ma_value = moving_averages[-2]
 
-    print(datetime.now(),
-          f"Last but one closing price: {last_but_one_closed_price}, last but one moving average value: {last_but_one_ma_value}")
-    print(datetime.now(), f"Last closing price: {last_closed_price}, last moving average value: {last_ma_value}")
+    print(datetime.now())
+    print(f"Last but one closing price: {last_but_one_closed_price}, last but one MA value: {last_but_one_ma_value}")
+    print(f"Last closing price: {last_closed_price}, last MA value: {last_ma_value}")
 
     if last_but_one_closed_price < last_but_one_ma_value and last_closed_price > last_ma_value:
-        trading_signal = "BUY"
+        trading_signal = OrderSide.buy
 
     if last_but_one_closed_price > last_but_one_ma_value and last_closed_price < last_ma_value:
-        trading_signal = "SELL"
+        trading_signal = OrderSide.sell
 
     return trading_signal
 
 
 def trading_handler():
-    global IN_POSITION
+    global in_position
     client = Client(API_KEY, SECRET_KEY)
     window_size = 7
     number_of_candles = window_size + 2  # we throw away the last, open candle and need one more candle for the last but one ma value
@@ -49,18 +51,21 @@ def trading_handler():
     moving_averages = get_moving_averages(prices_without_open_candle, window_size=window_size)
 
     trading_signal = calculate_trading_signal(prices_without_open_candle, moving_averages)
-    if trading_signal == "BUY":
-        if not IN_POSITION:
-            print("BUY")
-            IN_POSITION = True
-    if trading_signal == "SELL":
-        if IN_POSITION:
-            print("SELL")
-            IN_POSITION = False
+
+    if trading_signal == OrderSide.buy:
+        if not in_position:
+            print("Sending buy order")
+            # send_order(binance_client, OrderSide.buy, closing_price, BASE_CURRENCY, QUOTE_CURRENCY)
+            in_position = True
+    elif trading_signal == OrderSide.sell:
+        if in_position:
+            print("Sending sell order")
+            # send_order(binance_client, OrderSide.sell, closing_price, BASE_CURRENCY, QUOTE_CURRENCY)
+            in_position = False
 
 
 if __name__ == '__main__':
-    IN_POSITION = False
+    in_position = False
     while True:
         trading_handler()
         time.sleep(60)

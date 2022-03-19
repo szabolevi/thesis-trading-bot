@@ -5,7 +5,7 @@ import os
 from core.notifications import send_notification
 
 
-class Signal(enum.Enum):
+class OrderSide(enum.Enum):
     buy = 1
     sell = 2
 
@@ -17,9 +17,9 @@ def handle_transaction_error(logger, error):
 
 
 def handle_transaction_info(logger, order_type, base_currency, price, quote_currency):
-    if order_type == "buy":
+    if order_type == OrderSide.buy:
         transaction_message = f"Bought {base_currency} at (approximately) {price} {quote_currency}"
-    if order_type == "sell":
+    if order_type == OrderSide.sell:
         transaction_message = f"Sold {base_currency} at (approximately) {price} {quote_currency}"
     logger.info(transaction_message)
     send_notification(transaction_message)
@@ -57,8 +57,6 @@ def configure_logger(logging_directory):
     console_handler.setFormatter(log_formatter)
     logger.addHandler(console_handler)
 
-    return logger
-
 
 def process_msg(message):
     json_message = json.loads(message)
@@ -68,3 +66,8 @@ def process_msg(message):
     closing_price = float(candle_data['c'])
 
     return is_candle_closed, closing_price
+
+
+def truncate(n, decimals=0):
+    multiplier = 10 ** decimals
+    return int(n * multiplier) / multiplier

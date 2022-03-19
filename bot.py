@@ -1,13 +1,15 @@
+import logging
+
 import websocket
 from binance.client import Client
 from binance.exceptions import BinanceAPIException, BinanceOrderException
 
 from core.indicators import get_moving_averages
 from core.config import API_KEY, SECRET_KEY
-from core.utils import handle_transaction_error, handle_transaction_info, configure_logger, process_msg
-from core.trading import limit_buy_order, limit_sell_order, get_recent_prices
+from core.utils import handle_transaction_error, handle_transaction_info, configure_logger, process_msg, OrderSide
+from core.trading import limit_buy_order, limit_sell_order, get_recent_prices, is_open_position
 
-BASE_CURRENCY = "ETH"
+BASE_CURRENCY = "BTC"
 QUOTE_CURRENCY = "EUR"
 TRADE_SYMBOL = BASE_CURRENCY + QUOTE_CURRENCY
 INTERVAL = Client.KLINE_INTERVAL_1MINUTE
@@ -25,31 +27,31 @@ def calculate_trading_signal(prices, moving_averages):
     last_but_one_ma_value = moving_averages[-2]
 
     if last_but_one_closed_price < last_but_one_ma_value and last_closed_price > last_ma_value:
-        trading_signal = "BUY"
+        trading_signal = OrderSide.buy
 
     if last_but_one_closed_price > last_but_one_ma_value and last_closed_price < last_ma_value:
-        trading_signal = "SELL"
+        trading_signal = OrderSide.sell
 
     return trading_signal
 
 
 def send_order(client, side, closing_price, base_currency, quote_currency):
-    if side == "BUY":
+    if side == OrderSide.buy:
         try:
             limit_buy_order(client, base_currency, quote_currency)
         except (BinanceAPIException, BinanceOrderException) as e:
             handle_transaction_error(logger, e)
         except Exception as e:
             handle_transaction_error(logger, e)
-        handle_transaction_info(logger, "buy", base_currency, closing_price, quote_currency)
-    elif side == "SELL":
+        handle_transaction_info(logger, OrderSide.buy, base_currency, closing_price, quote_currency)
+    elif side == OrderSide.sell:
         try:
             limit_sell_order(client, base_currency, quote_currency)
         except (BinanceAPIException, BinanceOrderException) as e:
             handle_transaction_error(logger, e)
         except Exception as e:
             handle_transaction_error(logger, e)
-        handle_transaction_info(logger, "sell", base_currency, closing_price, quote_currency)
+        handle_transaction_info(logger, OrderSide.sell, base_currency, closing_price, quote_currency)
 
 
 def on_open(ws_app):
@@ -74,20 +76,22 @@ def on_message(ws_app, ws_message):
     moving_averages = get_moving_averages(closing_prices, MA_WINDOW_SIZE)
     trading_signal = calculate_trading_signal(closing_prices, moving_averages)
 
-    if trading_signal == "BUY":
+    if trading_signal == OrderSide.buy:
         if not in_position:
             logger.info("Sending buy order")
-            send_order(binance_client, "BUY", closing_price, BASE_CURRENCY, QUOTE_CURRENCY)
+            send_order(binance_client, OrderSide.buy, closing_price, BASE_CURRENCY, QUOTE_CURRENCY)
             in_position = True
-    elif trading_signal == "SELL":
+    elif trading_signal == OrderSide.sell:
         if in_position:
             logger.info("Sending sell order")
-            send_order(binance_client, "SELL", closing_price, BASE_CURRENCY, QUOTE_CURRENCY)
+            send_order(binance_client, OrderSide.sell, closing_price, BASE_CURRENCY, QUOTE_CURRENCY)
             in_position = False
 
 
 if __name__ == '__main__':
-    logger = configure_logger("logs")
+    configure_logger("logs")
+    logger = logging.getLogger()
+
     binance_client = Client(API_KEY, SECRET_KEY)
 
     closing_prices = get_recent_prices(binance_client, TRADE_SYMBOL, INTERVAL)
