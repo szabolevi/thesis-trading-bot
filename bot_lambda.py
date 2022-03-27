@@ -4,8 +4,8 @@ from datetime import datetime
 from binance import Client
 from core.config import API_KEY, SECRET_KEY
 from core.indicators import get_moving_averages
-from core.utils import OrderSide
-
+from core.trading import send_order
+from core.utils import OrderSide, configure_logger
 
 BASE_CURRENCY = "BTC"
 QUOTE_CURRENCY = "EUR"
@@ -42,30 +42,32 @@ def calculate_trading_signal(prices, moving_averages):
 
 
 def trading_handler():
-    global in_position
-    client = Client(API_KEY, SECRET_KEY)
+    print("Running started")
+    in_position = False
+    binance_client = Client(API_KEY, SECRET_KEY)
     window_size = 7
     number_of_candles = window_size + 2  # we throw away the last, open candle and need one more candle for the last but one ma value
 
-    prices_without_open_candle = get_prices(client, TRADE_SYMBOL, INTERVAL, number_of_candles)[:-1]
-    moving_averages = get_moving_averages(prices_without_open_candle, window_size=window_size)
+    closing_prices = get_prices(binance_client, TRADE_SYMBOL, INTERVAL, number_of_candles)[:-1]
+    moving_averages = get_moving_averages(closing_prices, window_size=window_size)
 
-    trading_signal = calculate_trading_signal(prices_without_open_candle, moving_averages)
-
+    trading_signal = calculate_trading_signal(closing_prices, moving_averages)
+    print("Everything initialized")
     if trading_signal == OrderSide.buy:
         if not in_position:
             print("Sending buy order")
-            # send_order(binance_client, OrderSide.buy, closing_price, BASE_CURRENCY, QUOTE_CURRENCY)
+            send_order(binance_client, OrderSide.buy, closing_prices[-1], BASE_CURRENCY, QUOTE_CURRENCY)
             in_position = True
     elif trading_signal == OrderSide.sell:
         if in_position:
             print("Sending sell order")
-            # send_order(binance_client, OrderSide.sell, closing_price, BASE_CURRENCY, QUOTE_CURRENCY)
+            send_order(binance_client, OrderSide.sell, closing_prices[-1], BASE_CURRENCY, QUOTE_CURRENCY)
             in_position = False
 
 
 if __name__ == '__main__':
-    in_position = False
-    while True:
-        trading_handler()
-        time.sleep(60)
+    pass
+    # in_position = False
+    # while True:
+    #     trading_handler()
+    #     time.sleep(60)

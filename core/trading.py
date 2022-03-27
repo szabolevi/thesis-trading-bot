@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from binance.client import Client
@@ -6,7 +7,9 @@ from binance.exceptions import BinanceAPIException, BinanceOrderException
 from core.config import BUY_LIMIT_PERCENT, TRADING_EQUITY_RATE, SELL_LIMIT_PERCENT, TAKE_PROFIT_PERCENT, \
     STOP_LOSS_PERCENT, TESTING
 from core.notifications import send_notification
-from core.utils import truncate
+from core.utils import truncate, OrderSide, handle_transaction_error, handle_transaction_info
+
+logger = logging.getLogger()
 
 
 def get_current_price(client, symbol):
@@ -64,14 +67,14 @@ def get_balance(client, symbol='USDT'):
 def limit_buy_order(client, base_asset, quote_asset):
     current_price = float(get_current_price(client, base_asset + quote_asset)["price"])
     fiat_balance = float(get_balance(client, quote_asset))
-    print(f"{quote_asset} balance: {fiat_balance}")
 
     limit_price = round(current_price * BUY_LIMIT_PERCENT, 2)
     fiat_buying_value = round(fiat_balance * TRADING_EQUITY_RATE, 4)
     base_asset_quantity = round(fiat_buying_value / current_price, 4)
 
-    print(f"Current {base_asset} price: {current_price} {quote_asset}, limit price: {limit_price}")
-    print(f"Buying: {base_asset_quantity} {base_asset} for {fiat_buying_value} {quote_asset}")
+    logger.info(f"{quote_asset} balance: {fiat_balance}")
+    logger.info(f"Current {base_asset} price: {current_price} {quote_asset}, limit price: {limit_price}")
+    logger.info(f"Buying: {base_asset_quantity} {base_asset} for {fiat_buying_value} {quote_asset}")
 
     if not TESTING:
         order = client.create_order(
@@ -82,21 +85,21 @@ def limit_buy_order(client, base_asset, quote_asset):
             quantity=base_asset_quantity,
             price=limit_price)
 
-        print(f"Order info: {order}")
+        logger.info(f"Order info: {order}")
 
 
 def limit_sell_order(client, base_asset, quote_asset):
     current_price = float(get_current_price(client, base_asset + quote_asset)["price"])
     balance = float(get_balance(client, base_asset))
     balance_value = round(balance * current_price, 5)
-    print(f"{base_asset} balance:{balance}, balance value: {balance_value} {quote_asset}")
 
     limit_price = round(current_price * SELL_LIMIT_PERCENT, 2)
     base_asset_sell_quantity = truncate(balance, 5)
     transaction_value = base_asset_sell_quantity * current_price
 
-    print(f"Current {base_asset} price: {current_price} {quote_asset}, limit price: {limit_price} {quote_asset}")
-    print(f"Selling {base_asset_sell_quantity} {base_asset} for {transaction_value} {quote_asset}")
+    logger.info(f"{base_asset} balance:{balance}, balance value: {balance_value} {quote_asset}")
+    logger.info(f"Current {base_asset} price: {current_price} {quote_asset}, limit price: {limit_price} {quote_asset}")
+    logger.info(f"Selling {base_asset_sell_quantity} {base_asset} for {transaction_value} {quote_asset}")
 
     if not TESTING:
         order = client.create_order(
@@ -141,3 +144,22 @@ def oco_sell(client, pair):
         error_message = f"An error occured when trying to send order: {e}"
         send_notification(error_message)
         print(error_message)
+
+
+def send_order(client, side, closing_price, base_currency, quote_currency):
+    if side == OrderSide.buy:
+        try:
+            limit_buy_order(client, base_currency, quote_currency)
+        except (BinanceAPIException, BinanceOrderException) as e:
+            handle_transaction_error(e)
+        except Exception as e:
+            handle_transaction_error(e)
+        handle_transaction_info(OrderSide.buy, base_currency, closing_price, quote_currency)
+    elif side == OrderSide.sell:
+        try:
+            limit_sell_order(client, base_currency, quote_currency)
+        except (BinanceAPIException, BinanceOrderException) as e:
+            handle_transaction_error(e)
+        except Exception as e:
+            handle_transaction_error(e)
+        handle_transaction_info(OrderSide.sell, base_currency, closing_price, quote_currency)
